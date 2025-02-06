@@ -1,31 +1,41 @@
+import { useState } from 'react'
 import Versions from './components/Versions'
-import electronLogo from './assets/electron.svg'
+// import electronLogo from './assets/electron.svg'
+const { ipcRenderer } = require('electron')
 
 function App(): JSX.Element {
-  const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
+  // const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
+  const [duration, setDuration] = useState('')
+  const [videoName, setVideoName] = useState('')
+  const submitHandler = async (): Promise<void> => {
+    // Request the main process to open the file dialog.
+    const filePath = await ipcRenderer.invoke('select-video')
+    if (!filePath) {
+      setVideoName('No file selected.')
+      console.log('No file selected from the dialog.')
+      return
+    }
+    console.log('Renderer received filePath:', filePath)
+    setVideoName('Selected file: ' + filePath)
+
+    try {
+      const duration = await ipcRenderer.invoke('get-video-duration', filePath)
+      console.log('Renderer received duration:', duration)
+      setDuration('\nVideo duration: ' + duration + ' seconds.')
+    } catch (error) {
+      console.error('Error retrieving video duration:', error)
+      setVideoName('Error retrieving metadata: ' + error)
+    }
+  }
 
   return (
     <>
-      <img alt="logo" className="logo" src={electronLogo} />
-      <div className="creator">Powered by electron-vite</div>
-      <div className="text">
-        Build an Electron app with <span className="react">React</span>
-        &nbsp;and <span className="ts">TypeScript</span>
-      </div>
-      <p className="text-amber-100">
-        Please try pressing <code>F12</code> to open the devTool
-      </p>
-      <div className="actions">
-        <div className="action">
-          <a href="https://electron-vite.org/" target="_blank" rel="noreferrer">
-            Documentation
-          </a>
-        </div>
-        <div className="action">
-          <a target="_blank" rel="noreferrer" onClick={ipcHandle}>
-            Send IPC
-          </a>
-        </div>
+      <div className="container">
+        <h1>Select a Video File</h1>
+        <button onClick={submitHandler}>Select Video</button>
+        <div id="result"></div>
+        <p>{videoName}</p>
+        <p>{duration}</p>
       </div>
       <Versions></Versions>
     </>

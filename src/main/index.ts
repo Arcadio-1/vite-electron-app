@@ -1,7 +1,8 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+const ffmpeg = require('fluent-ffmpeg')
 
 function createWindow(): void {
   // Create the browser window.
@@ -13,7 +14,10 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      // Ensure Node integration is enabled for this example.
+      nodeIntegration: true,
+      contextIsolation: false
     }
   })
 
@@ -60,7 +64,43 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
+ipcMain.handle('select-video', async () => {
+  console.log('Opening file dialog...')
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [{ name: 'Videos', extensions: ['mkv', 'avi', 'mp4', 'mov', 'wmv'] }]
+  })
+  if (result.canceled || result.filePaths.length === 0) {
+    console.log('File selection canceled or no file chosen.')
+    return null
+  }
+  console.log('Selected file:', result.filePaths[0])
+  return result.filePaths[0]
+})
 
+// IPC handler to get video duration via ffprobe.
+ipcMain.handle('get-video-duration', (event, filePath) => {
+  console.log('Received filePath for duration:', filePath)
+  return new Promise((resolve, reject) => {
+    if (!filePath) {
+      console.error('No file path provided to ffprobe.')
+      return reject('No file path provided.')
+    }
+    ffmpeg.ffprobe(filePath, (err, metadata) => {
+      if (err) {
+        console.error('ffprobe error:', err)
+        return reject(err.toString())
+      }
+      if (!metadata || !metadata.format) {
+        console.error('No metadata found from ffprobe.')
+        return reject('No metadata found.')
+      }
+      const duration = metadata.format.duration
+      console.log('Retrieved duration:', duration)
+      resolve(duration)
+    })
+  })
+})
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
