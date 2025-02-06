@@ -12,7 +12,7 @@ function App(): JSX.Element {
         Build an Electron app with <span className="react">React</span>
         &nbsp;and <span className="ts">TypeScript</span>
       </div>
-      <p className="tip">
+      <p className="text-amber-100">
         Please try pressing <code>F12</code> to open the devTool
       </p>
       <div className="actions">
